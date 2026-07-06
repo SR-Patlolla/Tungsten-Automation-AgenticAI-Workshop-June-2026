@@ -57,3 +57,19 @@ def parse_json_safely(text: str, raw_file: Path) -> List[Dict]:
         raise ValueError("Expected JSON array, got something else")
 
     return data
+
+def pick_log_file(file_path: str = None, log_dir: str = "data/logs") -> Path:
+    """Select log file - specific path or first .log file."""
+
+    if file_path:
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Log file not found: {file_path}")
+        return path
+
+    # Auto-pick first .log file
+    log_files = sorted(Path(log_dir).glob("*.log"))
+    if not log_files:
+        raise FileNotFoundError(f"No .log files in {log_dir}")
+
+    return log_files[0]
