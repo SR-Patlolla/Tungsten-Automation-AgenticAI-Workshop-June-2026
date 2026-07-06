@@ -23,6 +23,7 @@ Message = Dict[str, str]
 def chat(messages: List[Message]) -> str:
     if not messages:
         raise ValueError("messages cannot be empty")
+
     if PROVIDER == "openai":
         return _call_openai(messages)
 
@@ -32,8 +33,10 @@ def chat(messages: List[Message]) -> str:
     if PROVIDER == "google":
         return _call_gemini(messages)
 
-    else:
-        raise NotImplementedError(f"Provider '{PROVIDER}' not supported yet")
+    if PROVIDER == "anthropic":
+        return _call_anthropic(messages)
+
+    raise NotImplementedError(f"Provider '{PROVIDER}' not supported yet")
 
 def _call_openai(messages: List[Message]) -> str:
     """Call OpenAI API."""
@@ -79,27 +82,31 @@ def _call_ollama(messages: List[Message]) -> str:
         raise RuntimeError("Ollama returned empty response. Is Ollama running?")
     return response.message.content
 
-def call_anthropic(messages: List[Message]) -> str:
-    """Call Anthropic API."""
+def _call_anthropic(messages: List[Message]) -> str:
+    """Call Anthropic Claude API."""
     if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY is not set in .env")
 
+    system_text = next(
+        (msg["content"] for msg in messages if msg["role"] == "system"),
+        None
+    )
+
+    anthro_messages = [
+        {"role": msg["role"], "content": msg["content"]}
+        for msg in messages
+        if msg["role"] in ("user", "assistant")
+    ]
+
+    if not anthro_messages:
+        raise ValueError("Anthropic requires at least one user or assistant message")
+
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
-    # Convert messages to Anthropic format
-    anthro_messages = []
-    for msg in messages:
-        if msg["role"] == "system":
-            anthro_messages.append({"role": "system", "content": msg["content"]})
-        elif msg["role"] == "user":
-            anthro_messages.append({"role": "user", "content": msg["content"]})
-        elif msg["role"] == "assistant":
-            anthro_messages.append({"role": "assistant", "content": msg["content"]})
-
-    response = client.completions.create(
+    response = client.messages.create(
         model=MODEL,
         messages=anthro_messages,
-        max_tokens_to_sample=1000,
-        temperature=0.7,
+        system=system_text
     )
-    return response.completion
+
+    return response.content[0].text
