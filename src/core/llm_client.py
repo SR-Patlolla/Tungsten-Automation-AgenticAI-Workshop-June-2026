@@ -110,6 +110,7 @@ def _call_anthropic(messages: List[Message]) -> str:
 
     response = client.messages.create(
         model=MODEL,
+        max_tokens=4096,
         messages=anthro_messages,
         system=system_text
     )
